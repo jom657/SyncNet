@@ -3,6 +3,7 @@ import os
 from Class import An, Agg
 import logging
 
+
 # shared_log_file = open("error_log.txt", "w")
 # folder_path = r"D:\1Python Script\2024\SyncNet\Jom\Test Lab"
 # self.script_directory = os.path.dirname(__file__)
@@ -264,10 +265,10 @@ class Main():
         columns_with_newline = ['VOICEVLAN.SIP VLAN\n(GEMPORT Mapping)', 'DATAVLAN.Data VLAN',]
         for column in columns_with_newline:
             df_wlndb = df_wlndb.copy()
-            # df_wlndb[column] = df_wlndb[column].apply(lambda x: x.split('\n') if isinstance(x, str) else x)
             
             # convert columns_with_newline Values to int then sort, then convert back to str
-            df_wlndb[column] = df_wlndb[column].apply(lambda x: sorted([int(val) for val in x.split('\n') if val.isdigit()]) if isinstance(x, str) else x)
+            # df_wlndb[column] = df_wlndb[column].apply(lambda x: sorted([int(val) for val in x.split('\n') if val.isdigit()]) if isinstance(x, str) else x)
+            df_wlndb[column] = df_wlndb[column].apply(lambda x: sorted([int(val.strip()) for val in x.split('\n') if val.strip().isdigit()]) if isinstance(x, str) else x)
             df_wlndb[column] = df_wlndb[column].apply(lambda x: '\n'.join(map(str, x)) if isinstance(x, list) else x)
 
         # Change Column name of excel file
@@ -433,6 +434,8 @@ def run(root,text_update,folder):
 
 
         # --------- Get the Output that needs to be updated by region
+        # an_data = pd.read_csv('final_output - Copy.csv', index_col=False, dtype='unicode')
+
         df_final_merge = main.get_to_update(an_data,main.df_raw)
         df_final_merge = df_final_merge[['Region','Node Name', 'Uplink','Uplink_NMS', 'Trunk','Trunk_NMS', 'OM','OM_NMS', 'SIP','SIP_NMS', 'HSI','HSI_NMS', 'IPOE','IPOE_NMS', 'SIGNALING','SIGNALING_NMS','MEDIA', 'MEDIA_NMS','Auth IP','Auth IP_NMS', 'UnAuth IP','UnAuth IP_NMS']]
         print(df_final_merge)

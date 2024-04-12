@@ -109,19 +109,23 @@ class Agg(LoadFile):
         # port = "100GE1/1/16"
         
         # with open(f"{self.file_name}.txt", 'rt') as data:
-        with open(self.file_path, 'rt') as data:
-            for line in data:
-                if command in line:  
-                    capturing = True
-                    continue
-                # elif (f"<{self.equipment_name}>") in line and capturing:
-                elif ("display") in line and capturing:
-                    capturing = False
-                    break
-                elif capturing and port in line:
-                        dump_list.append(line)
-        
-        return dump_list  
+        try:
+            with open(self.file_path, 'rt') as data:
+                for line in data:
+                    if command in line:  
+                        capturing = True
+                        continue
+                    # elif (f"<{self.equipment_name}>") in line and capturing:
+                    elif ("display") in line and capturing:
+                        capturing = False
+                        break
+                    elif capturing and port in line:
+                            dump_list.append(line)
+            
+            return dump_list
+          
+        except UnicodeDecodeError as e:
+            print(f"UnicodeDecodeError: {e}")
     
     def get_vsi(self,raw_data,vlan_array,homing):
         # vlan_hsi_bng = [sublist + bng_homing for sublist in vlan_hsi]
@@ -162,19 +166,23 @@ class Agg(LoadFile):
     def get_data_from(self,command):
         dump_list = []
         capturing = False #True if the script will start to capture the line
+        
+        try:
+            with open(self.file_path, 'rt') as data:
+                for line in data:
+                    if command in line:  
+                        capturing = True
+                        continue
+                    elif ("display") in line and capturing:
+                        capturing = False
+                        break
+                    elif capturing:
+                            dump_list.append(line)
 
-        with open(self.file_path, 'rt') as data:
-            for line in data:
-                if command in line:  
-                    capturing = True
-                    continue
-                elif ("display") in line and capturing:
-                    capturing = False
-                    break
-                elif capturing:
-                        dump_list.append(line)
-
-        return dump_list
+            return dump_list
+        
+        except UnicodeDecodeError as e:
+            print(f"UnicodeDecodeError: {e}")
     
     def get_sip_ip(self,raw_data,interface):
         capturing = False
@@ -219,59 +227,65 @@ class An(LoadFile):
         # ----- Get Description and Port
         dump_list = []
         capturing = False #True if the script will start to capture the line
-        
-        with open(self.file_path, 'rt') as data:
-            trunk = None
-            for line in data:
-                if command in line:  
-                    capturing = True
-                    continue
-                # elif (f"<{self.equipment_name}>") in line and capturing:
-                elif ("display") in line and capturing:
+        try:
+            with open(self.file_path, 'rt') as data:
+                trunk = None
+                for line in data:
+                    if command in line:  
+                        capturing = True
+                        continue
+                    # elif (f"<{self.equipment_name}>") in line and capturing:
+                    elif ("display") in line and capturing:
+                        capturing = False
+                        break
+                    elif capturing and search in line and ('Eth-Trunk' in line or 'GigabitEthernet' in line or 'GE' in line) and 'VE1/0' not in line and '100GE' not in line:
+                        dump_list.append(line)
+                        
+                        # Get the Trunk
+                        if trunk is None:
+                            interface = re.split(r'\s{3,}', line)[0]
+
+                            if len(interface.split('.')) > 1:
+                                trunk = interface.split('.')[0]
+                            else:
+                                trunk = interface
+
+                            if '(10G)' in trunk:
+                                trunk = trunk.replace("(10G)", "")
+            
+                # Get the other VLAN based on its existing trunk
+                if search in self.list_exception:
+                    return dump_list
+
+                if dump_list:                      
+                    # get the vlans already capture
+                    captured_vlan_list = []
+                    for row in dump_list:
+                        captured_vlan = re.split(r'\s{3,}', row)[0].split('.')
+
+                        if len(captured_vlan) > 1:
+                            captured_vlan_list.append(captured_vlan[1])
+
+                    # get the VLANs not cpatured from the first loop
                     capturing = False
-                    break
-                elif capturing and search in line and ('Eth-Trunk' in line or 'GigabitEthernet' in line or 'GE' in line) and 'VE1/0' not in line:
-                    dump_list.append(line)
-                    
-                    # Get the Trunk
-                    if trunk is None:
-                        interface = re.split(r'\s{3,}', line)[0]
+                    with open(self.file_path, 'rt') as data:
+                        for line in data:
+                            if command in line:  
+                                capturing = True
+                                continue
+                            elif ("display") in line and capturing:
+                                capturing = False
+                                break
+                            if capturing and (f'{trunk}.' in line):
+                                vlan = re.split(r'\s{3,}', line)[0].split('.')
+                                if len(vlan) > 1:
+                                    if vlan[1] not in captured_vlan_list:
+                                        dump_list.append(line)                                 
 
-                        if len(interface.split('.')) > 1:
-                            trunk = interface.split('.')[0]
-                        else:
-                            trunk = interface
+            return dump_list  
         
-            # Get the other VLAN based on its existing trunk
-            if search in self.list_exception:
-                return dump_list
-
-            if dump_list:                      
-                # get the vlans already capture
-                captured_vlan_list = []
-                for row in dump_list:
-                    captured_vlan = re.split(r'\s{3,}', row)[0].split('.')
-
-                    if len(captured_vlan) > 1:
-                        captured_vlan_list.append(captured_vlan[1])
-
-                # get the VLANs not cpatured from the first loop
-                capturing = False
-                with open(self.file_path, 'rt') as data:
-                    for line in data:
-                        if command in line:  
-                            capturing = True
-                            continue
-                        elif ("display") in line and capturing:
-                            capturing = False
-                            break
-                        if capturing and (f'{trunk}.' in line):
-                            vlan = re.split(r'\s{3,}', line)[0].split('.')
-                            if len(vlan) > 1:
-                                if vlan[1] not in captured_vlan_list:
-                                    dump_list.append(line)                                    
-
-        return dump_list  
+        except UnicodeDecodeError as e:
+            print(f"UnicodeDecodeError: {e}")
 
 
     def get_trunk(self, node_name, vlan_list):
@@ -356,40 +370,48 @@ class An(LoadFile):
         # ----- Get Description and Port
         ag_homing_list = []
         capturing = False #True if the script will start to capture the line
+        try:
+            with open(self.file_path, 'rt') as data:
+                for line in data:
+                    if command in line:  
+                        capturing = True
+                        continue
+                    elif '#\n' in line and capturing:
+                        capturing = False
+                        break
+                    elif capturing and search in line:
+                            ip_pattern = r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b'
+                            ag_homing = re.findall(ip_pattern, line)
+                            ag_homing_list.append(ag_homing)
+            return ag_homing_list
         
-        with open(self.file_path, 'rt') as data:
-            for line in data:
-                if command in line:  
-                    capturing = True
-                    continue
-                elif '#\n' in line and capturing:
-                    capturing = False
-                    break
-                elif capturing and search in line:
-                        ip_pattern = r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b'
-                        ag_homing = re.findall(ip_pattern, line)
-                        ag_homing_list.append(ag_homing)
-        return ag_homing_list
+        except UnicodeDecodeError as e:
+            print(f"UnicodeDecodeError: {e}")
+
 
     def get_ag_from(self,command,search):
         # ----- Get Description and Port
         ag_homing_list = []
         capturing = False #True if the script will start to capture the line
         
-        with open(self.file_path, 'rt') as data:
-            for line in data:
-                if command in line:  
-                    capturing = True
-                    continue
-                # elif (f"<{self.equipment_name}>") in line and capturing:
-                elif '#\n' in line and capturing:
-                    capturing = False
-                    break
-                elif capturing and search in line:
-                        ip_pattern = r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b'
-                        ag_homing = re.findall(ip_pattern, line)
-                        ag_homing_list.append(ag_homing)
-        return ag_homing_list
+        try:
+            with open(self.file_path, 'rt') as data:
+                for line in data:
+                    if command in line:  
+                        capturing = True
+                        continue
+                    # elif (f"<{self.equipment_name}>") in line and capturing:
+                    elif '#\n' in line and capturing:
+                        capturing = False
+                        break
+                    elif capturing and search in line:
+                            ip_pattern = r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b'
+                            ag_homing = re.findall(ip_pattern, line)
+                            ag_homing_list.append(ag_homing)
+            return ag_homing_list
+        
+        except UnicodeDecodeError as e:
+            print(f"UnicodeDecodeError: {e}")
 
     def get_ports_trunk(self,trunk_list):
         
@@ -398,26 +420,29 @@ class An(LoadFile):
         get_port = False
         capturing = False 
         trunk_ports = []
+        try:
+            with open(self.file_path, 'rt') as data:
+                for line in data:
+                    if command in line:  
+                        capturing = True
+                        continue
+                    # elif (f"<{self.equipment_name}>") in line and capturing:
+                    elif ("display") in line and capturing:
+                        capturing = False
+                        break
+                    elif capturing and (trunk in line) and (not get_port) and (len(trunk_ports) == 0):
+                        get_port = True
+                    elif capturing and (trunk in line) and (get_port) and (len(trunk_ports) > 0):
+                        get_port = False
+                    elif get_port:
+                        trunk_ports.append(line.split()[0])
+                        
+                new_trunk_name = f"{trunk}||{'|'.join(trunk_ports)}".replace("GigabitEthernet", "GE")
 
-        with open(self.file_path, 'rt') as data:
-            for line in data:
-                if command in line:  
-                    capturing = True
-                    continue
-                # elif (f"<{self.equipment_name}>") in line and capturing:
-                elif ("display") in line and capturing:
-                    capturing = False
-                    break
-                elif capturing and (trunk in line) and (not get_port) and (len(trunk_ports) == 0):
-                    get_port = True
-                elif capturing and (trunk in line) and (get_port) and (len(trunk_ports) > 0):
-                    get_port = False
-                elif get_port:
-                    trunk_ports.append(line.split()[0])
-                    
-            new_trunk_name = f"{trunk}||{'|'.join(trunk_ports)}".replace("GigabitEthernet", "GE")
-
-        return new_trunk_name   
+            return new_trunk_name
+        
+        except UnicodeDecodeError as e:
+            print(f"UnicodeDecodeError: {e}")   
     
     def combine_similar(self,data_set):
         result_dict = {}
@@ -439,8 +464,20 @@ class An(LoadFile):
                     else:
                         continue 
                 else:
-                    result_dict[node_name][2] += ' & ' + an_name
-                    result_dict[node_name][3] += ' & ' + trunk
+                    if 'AGG' in result_dict[node_name][2] and 'AGG' not in an_name:
+                        # if an_name1(exsiting in array) has AGG and an_name2 does not, consider the an_name1 as erratic 
+                        # delete an_name1 then add the new with correct AN name
+                        result_dict.pop(node_name)
+                        result_dict[node_name] = row
+
+                    elif 'AGG' not in result_dict[node_name][2] and 'AGG' in an_name:
+                        # if an_name1(exsiting in array) does not have AGG and an_name2 has, consider the an_name2 as erratic 
+                        # do nothing,
+                        pass
+
+                    else:
+                        result_dict[node_name][2] += ' & ' + an_name
+                        result_dict[node_name][3] += ' & ' + trunk
 
         # Convert the dictionary values to a list
         result_list = list(result_dict.values())
